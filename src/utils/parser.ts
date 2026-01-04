@@ -66,53 +66,57 @@ export function extractStyle(description: string): string {
  * Parse Perplexity search results into DressListing objects
  */
 export function parsePickleListings(results: SearchResult[]): DressListing[] {
-  return results
-    .map((result, index) => {
-      const price = extractPrice(result.snippet) || extractPrice(result.title)
-      const brand = extractBrand(result.title) || extractBrand(result.snippet) || 'Unknown'
-      const style = extractStyle(result.title + ' ' + result.snippet)
+  const listings: DressListing[] = []
+  
+  results.forEach((result, index) => {
+    const price = extractPrice(result.snippet) || extractPrice(result.title)
+    if (!price) return
 
-      if (!price) return null
+    const brand = extractBrand(result.title) || extractBrand(result.snippet) || 'Unknown'
+    const style = extractStyle(result.title + ' ' + result.snippet)
 
-      return {
-        id: `listing-${index}`,
-        brand,
-        style,
-        rentalPrice: price,
-        condition: 'like new' as const,
-        description: result.snippet,
-        url: result.url,
-      }
+    listings.push({
+      id: `listing-${index}`,
+      brand,
+      style,
+      rentalPrice: price,
+      condition: 'like new' as const,
+      description: result.snippet,
+      url: result.url,
     })
-    .filter((listing): listing is DressListing => listing !== null)
+  })
+
+  return listings
 }
 
 /**
  * Parse retail source results
  */
 export function parseRetailSources(results: SearchResult[]): RetailSource[] {
-  return results
-    .map((result) => {
-      const price = extractPrice(result.snippet) || extractPrice(result.title)
-      const retailer = extractRetailer(result.url)
-      
-      if (!price || !retailer) return null
+  const sources: RetailSource[] = []
+  
+  results.forEach((result) => {
+    const price = extractPrice(result.snippet) || extractPrice(result.title)
+    const retailer = extractRetailer(result.url)
+    
+    if (!price || !retailer) return
 
-      // Try to extract original price and sale price
-      const prices = extractAllPrices(result.snippet + ' ' + result.title)
-      const salePrice = prices.length > 0 ? Math.min(...prices) : price
-      const originalPrice = prices.length > 1 ? Math.max(...prices) : salePrice * 1.3 // Estimate if not found
-      const discountPercent = ((originalPrice - salePrice) / originalPrice) * 100
+    // Try to extract original price and sale price
+    const prices = extractAllPrices(result.snippet + ' ' + result.title)
+    const salePrice = prices.length > 0 ? Math.min(...prices) : price
+    const originalPrice = prices.length > 1 ? Math.max(...prices) : salePrice * 1.3 // Estimate if not found
+    const discountPercent = ((originalPrice - salePrice) / originalPrice) * 100
 
-      return {
-        retailer,
-        originalPrice: Math.round(originalPrice * 100) / 100,
-        salePrice: Math.round(salePrice * 100) / 100,
-        discountPercent: Math.round(discountPercent),
-        url: result.url,
-      }
+    sources.push({
+      retailer,
+      originalPrice: Math.round(originalPrice * 100) / 100,
+      salePrice: Math.round(salePrice * 100) / 100,
+      discountPercent: Math.round(discountPercent),
+      url: result.url,
     })
-    .filter((source): source is RetailSource => source !== null)
+  })
+
+  return sources
 }
 
 /**

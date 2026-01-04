@@ -69,3 +69,29 @@ src/
 - [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Perplexity API](https://www.perplexity.ai/) for web search
+
+## Deployment
+
+### Quick Deploy to Vercel
+
+1. Push your code to GitHub
+2. Import project on [Vercel](https://vercel.com)
+3. Add environment variable: `PERPLEXITY_API_KEY`
+4. Deploy!
+
+### Test Production Build Locally
+
+```bash
+npm run build
+npm run start
+```
+
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+## Security Features
+
+- ✅ Rate limiting (10 requests per minute per IP)
+- ✅ Input validation and sanitization
+- ✅ Security headers configured
+- ✅ API keys stored as environment variables
+- ✅ Error messages don't expose sensitive information

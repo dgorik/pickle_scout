@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { DressListing, TrendAnalysisResult } from "@/types";
+import { SourcingFinder } from "./SourcingFinder";
 
 export function TrendAnalyzer() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -9,6 +10,10 @@ export function TrendAnalyzer() {
   const [results, setResults] = useState<TrendAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trendingItems, setTrendingItems] = useState<Set<string>>(new Set());
+  const [sourcingFor, setSourcingFor] = useState<{
+    brand: string;
+    style: string;
+  } | null>(null);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -148,18 +153,33 @@ export function TrendAnalyzer() {
                           ${listing.rentalPrice.toFixed(2)}/rental
                         </div>
                       </div>
-                      <button
-                        onClick={() => toggleTrending(listing.id)}
-                        className={`ml-4 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                          trendingItems.has(listing.id)
-                            ? "bg-blue-600 text-white hover:bg-blue-700"
-                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                        }`}
-                      >
-                        {trendingItems.has(listing.id)
-                          ? "✓ Trending"
-                          : "Mark as Trending"}
-                      </button>
+                      <div className="flex flex-col gap-2 ml-4">
+                        <button
+                          onClick={() => toggleTrending(listing.id)}
+                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                            trendingItems.has(listing.id)
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          }`}
+                        >
+                          {trendingItems.has(listing.id)
+                            ? "✓ Trending"
+                            : "Mark as Trending"}
+                        </button>
+                        {trendingItems.has(listing.id) && (
+                          <button
+                            onClick={() =>
+                              setSourcingFor({
+                                brand: listing.brand,
+                                style: listing.style,
+                              })
+                            }
+                            className="px-4 py-2 rounded-md text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                          >
+                            Find Discount Sources
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -175,6 +195,15 @@ export function TrendAnalyzer() {
           </div>
         )}
       </div>
+
+      {/* Sourcing Finder Modal */}
+      {sourcingFor && (
+        <SourcingFinder
+          brand={sourcingFor.brand}
+          style={sourcingFor.style}
+          onClose={() => setSourcingFor(null)}
+        />
+      )}
     </div>
   );
 }

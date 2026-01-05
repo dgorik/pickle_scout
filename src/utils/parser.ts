@@ -63,11 +63,45 @@ export function extractStyle(description: string): string {
 }
 
 /**
- * Parse Perplexity search results into DressListing objects
+ * Parse JSON response from Perplexity into DressListing objects
  */
 export function parsePickleListings(results: SearchResult[]): DressListing[] {
   const listings: DressListing[] = []
   
+  // Try to parse JSON from the first result's snippet (Perplexity returns structured data)
+  if (results.length > 0 && results[0].snippet) {
+    try {
+      // Try to extract JSON array from the response
+      const jsonMatch = results[0].snippet.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (Array.isArray(parsed)) {
+          parsed.forEach((item: any, index: number) => {
+            const price = extractPrice(item.price || '') || 0
+            const { brand, style } = extractBrandAndStyle(item.name || '')
+            
+            listings.push({
+              id: `listing-${index}`,
+              name: item.name || 'Unknown Dress',
+              brand,
+              style,
+              rentalPrice: price,
+              condition: 'like new' as const,
+              description: item.name || '',
+              url: item.url || '',
+              picture: item.picture || '',
+            })
+          })
+          return listings
+        }
+      }
+    } catch (e) {
+      // JSON parsing failed, fall back to text extraction
+      console.log('JSON parsing failed, using text extraction')
+    }
+  }
+
+  // Fallback: Extract from unstructured text
   results.forEach((result, index) => {
     const price = extractPrice(result.snippet) || extractPrice(result.title)
     if (!price) return
@@ -77,6 +111,7 @@ export function parsePickleListings(results: SearchResult[]): DressListing[] {
 
     listings.push({
       id: `listing-${index}`,
+      name: result.title || `${brand} ${style} Dress`,
       brand,
       style,
       rentalPrice: price,
@@ -90,11 +125,55 @@ export function parsePickleListings(results: SearchResult[]): DressListing[] {
 }
 
 /**
+ * Extract brand and style from a combined name string
+ */
+function extractBrandAndStyle(name: string): { brand: string; style: string } {
+  const brand = extractBrand(name) || 'Unknown'
+  const style = extractStyle(name)
+  return { brand, style }
+}
+
+/**
  * Parse retail source results
+ * Supports structured JSON from Perplexity and falls back to text extraction
  */
 export function parseRetailSources(results: SearchResult[]): RetailSource[] {
   const sources: RetailSource[] = []
-  
+
+  // Try to parse JSON array from the first result's snippet
+  if (results.length > 0 && results[0].snippet) {
+    try {
+      const jsonMatch = results[0].snippet.match(/\[[\s\S]*\]/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (Array.isArray(parsed)) {
+          parsed.forEach((item: any) => {
+            const salePrice = extractPrice(item.current_price || '') || extractPrice(item.price || '') || 0
+            const historicalPrice = extractPrice(item.historical_price || '') || extractPrice(item.msrp || '') || salePrice || 0
+            const retailer = item.retailer || extractRetailer(item.url || '') || 'Unknown'
+            if (!salePrice || !retailer) return
+
+            const originalPrice = historicalPrice || salePrice
+            const discountPercent = originalPrice > 0 ? ((originalPrice - salePrice) / originalPrice) * 100 : 0
+
+            sources.push({
+              retailer,
+              originalPrice: Math.round(originalPrice * 100) / 100,
+              salePrice: Math.round(salePrice * 100) / 100,
+              discountPercent: Math.round(discountPercent),
+              url: item.url || '',
+              availability: item.condition || item.availability || undefined,
+            })
+          })
+          if (sources.length > 0) return sources
+        }
+      }
+    } catch (e) {
+      console.log('Retail JSON parsing failed, falling back to text extraction')
+    }
+  }
+
+  // Fallback: Extract from unstructured text
   results.forEach((result) => {
     const price = extractPrice(result.snippet) || extractPrice(result.title)
     const retailer = extractRetailer(result.url)

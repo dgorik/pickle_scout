@@ -2,6 +2,7 @@
 
 export interface DressListing {
   id: string
+  name: string
   brand: string
   style: string
   rentalPrice: number
@@ -10,6 +11,7 @@ export interface DressListing {
   reviews?: number
   description?: string
   url?: string
+  picture?: string
 }
 
 export interface RetailSource {

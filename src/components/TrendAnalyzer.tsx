@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { DressListing, TrendAnalysisResult } from "@/types";
+import type { TrendAnalysisResult } from "@/types";
 import { SourcingFinder } from "./SourcingFinder";
 
 export function TrendAnalyzer() {
-  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<TrendAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -15,9 +14,7 @@ export function TrendAnalyzer() {
     style: string;
   } | null>(null);
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-
+  const fetchTrending = async () => {
     setLoading(true);
     setError(null);
 
@@ -26,14 +23,14 @@ export function TrendAnalyzer() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          query: `Pickle ${searchQuery} dress rental`,
+          query: "trending",
           type: "trends",
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Search failed");
+        throw new Error(errorData.error || "Failed to fetch trending dresses");
       }
 
       const data = await response.json();
@@ -62,22 +59,14 @@ export function TrendAnalyzer() {
           Trend Analyzer
         </h2>
 
-        {/* Search Input */}
-        <div className="flex gap-4 mb-6">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="Search Pickle (e.g., 'black midi dress', 'Zara dress')"
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {/* Fetch Button */}
+        <div className="mb-6">
           <button
-            onClick={handleSearch}
+            onClick={fetchTrending}
             disabled={loading}
-            className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? "Searching..." : "Search"}
+            {loading ? "Loading..." : "Fetch Trending Dresses"}
           </button>
         </div>
 
@@ -134,51 +123,75 @@ export function TrendAnalyzer() {
                         : "border-gray-200 bg-white"
                     }`}
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold text-gray-900">
-                            {listing.brand}
-                          </span>
-                          <span className="text-sm text-gray-500">•</span>
-                          <span className="text-sm text-gray-600 capitalize">
-                            {listing.style}
-                          </span>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      {/* Image */}
+                      {listing.picture && (
+                        <div className="flex-shrink-0">
+                          <img
+                            src={listing.picture}
+                            alt={listing.name || listing.brand}
+                            className="w-24 h-32 object-cover rounded-md"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
                         </div>
-                        <div className="text-gray-700 mb-2">
-                          {listing.description ||
-                            `${listing.brand} ${listing.style} dress`}
+                      )}
+
+                      {/* Content */}
+                      <div className="flex-1 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 min-w-0">
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900 mb-1">
+                            {listing.name ||
+                              `${listing.brand} ${listing.style} Dress`}
+                          </div>
+                          <div className="flex items-center gap-2 mb-2 text-sm text-gray-600">
+                            <span>{listing.brand}</span>
+                            <span>•</span>
+                            <span className="capitalize">{listing.style}</span>
+                          </div>
+                          <div className="text-lg font-bold text-green-600 mb-2">
+                            ${listing.rentalPrice.toFixed(2)}/rental
+                          </div>
+                          {listing.url && (
+                            <a
+                              href={listing.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:underline"
+                            >
+                              View on Pickle →
+                            </a>
+                          )}
                         </div>
-                        <div className="text-lg font-bold text-gray-900">
-                          ${listing.rentalPrice.toFixed(2)}/rental
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-2 ml-4">
-                        <button
-                          onClick={() => toggleTrending(listing.id)}
-                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                            trendingItems.has(listing.id)
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          }`}
-                        >
-                          {trendingItems.has(listing.id)
-                            ? "✓ Trending"
-                            : "Mark as Trending"}
-                        </button>
-                        {trendingItems.has(listing.id) && (
+                        <div className="flex flex-col gap-2 sm:ml-4 w-full sm:w-auto">
                           <button
-                            onClick={() =>
-                              setSourcingFor({
-                                brand: listing.brand,
-                                style: listing.style,
-                              })
-                            }
-                            className="px-4 py-2 rounded-md text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                            onClick={() => toggleTrending(listing.id)}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors w-full sm:w-auto ${
+                              trendingItems.has(listing.id)
+                                ? "bg-blue-600 text-white hover:bg-blue-700"
+                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
                           >
-                            Find Discount Sources
+                            {trendingItems.has(listing.id)
+                              ? "✓ Trending"
+                              : "Mark as Trending"}
                           </button>
-                        )}
+                          {trendingItems.has(listing.id) && (
+                            <button
+                              onClick={() =>
+                                setSourcingFor({
+                                  brand: listing.brand,
+                                  style: listing.style,
+                                })
+                              }
+                              className="px-4 py-2 rounded-md text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors w-full sm:w-auto"
+                            >
+                              Find Discount Sources
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -191,7 +204,7 @@ export function TrendAnalyzer() {
         {/* Empty State */}
         {!results && !loading && (
           <div className="text-center py-12 text-gray-500">
-            Enter a search query to find trending dresses on Pickle
+            Click the button above to fetch trending dresses from Pickle
           </div>
         )}
       </div>

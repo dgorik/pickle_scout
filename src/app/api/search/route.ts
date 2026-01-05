@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { SearchRequest, SearchResult } from '@/types'
 import { parsePickleListings, parseRetailSources } from '@/utils/parser'
 import { calculateAveragePrice, calculatePriceRange, getTopBrands } from '@/utils/calculations'
-
-// Declare search_web as a global function available in Cursor/Vercel environment
-declare function search_web(queries: string[]): Promise<SearchResult[]>
+import { trendingQuery, buildSourcingPrompt } from '@/utils/searchPrompts'
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 const RATE_LIMIT = 10
@@ -27,21 +25,57 @@ function checkRateLimit(ip: string): boolean {
   return true
 }
 
-async function performSearch(queries: string[]): Promise<SearchResult[]> {
-  if (process.env.USE_MOCK_DATA === 'true') {
-    // Return mock data for local development
-    return [{
-      title: 'Mock Result',
-      url: 'https://example.com',
-      snippet: 'This is a mock result for local testing'
-    }]
+async function performSearch(prompt: string): Promise<SearchResult[]> {
+  const perplexityApiKey = process.env.PERPLEXITY_API_KEY
+  if (!perplexityApiKey) {
+    throw new Error('PERPLEXITY_API_KEY is not configured')
   }
 
-  // In production (Vercel), search_web will be available globally
   try {
-    const results = await search_web(queries)
-    return results
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a helpful assistant that extracts data from websites and returns it in valid JSON format only. Do not include any markdown, explanations, or text outside the JSON array.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 4000,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Perplexity API error:', errorText)
+      throw new Error(`API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content || ''
+
+    console.log('Perplexity response:', content)
+
+    return [
+      {
+        title: 'Perplexity Result',
+        url: '',
+        snippet: content,
+      },
+    ]
   } catch (error) {
+    console.error('Perplexity search error:', error)
     throw new Error('Search service unavailable')
   }
 }
@@ -73,7 +107,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const searchResults = await performSearch([query])
+    // Build prompt based on type
+    let prompt = trendingQuery
+    if (type === 'sourcing') {
+      // Use brand/style query passed from client to build sourcing prompt
+      prompt = buildSourcingPrompt(query, query)
+    }
+
+    const searchResults = await performSearch(prompt)
 
     if (type === 'trends') {
       const listings = parsePickleListings(searchResults)
